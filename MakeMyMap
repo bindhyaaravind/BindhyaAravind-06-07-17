@@ -1,0 +1,268 @@
+
+import java.io.BufferedReader;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+
+class MakeMyMap {
+	//To make things simple, SIZE is kept 2 (SIZE has to be a power of 2)
+	 static final int SIZE = 2;
+	 makeEntry table[] = new makeEntry[SIZE];
+       
+        //meant for each item
+         class makeEntry {
+		String key;
+		String value;
+		makeEntry next;
+
+		makeEntry(String k, String v) {
+                        key=new String(k);
+			value = new String(v);
+		}
+
+		public String getValue() {
+			return value;
+		}
+
+		public void setValue(String value) {
+			this.value = value;
+		}
+
+		public String getKey() {
+			return key;
+		}
+	}
+
+        //this is used to enhance the purpose of hashCode()
+	private int getBNumber(int h) {
+		//calcultaion is based on load factor
+		h ^= (h >>> 20) ^ (h >>> 12);
+		return h ^ (h >>> 7) ^ (h >>> 4);
+	}
+        //gives the index of a hash,
+	private int getBucketNumber(int hash) {
+		return hash & (SIZE - 1);
+	}
+
+	//insertion of the item, into the map
+	public void put(String key, String value) {
+		//obtain the hashcode 
+		int userHash = key.hashCode();
+                //enhance the obtained hashcode to reduce collision
+		int hash = getBNumber(userHash);
+                //the index of the bucket depends on the value of SIZE
+		int bucket = getBucketNumber(hash);
+               //item being put in the bucket
+		makeEntry existingElement = table[bucket];
+                //Section to keep track of duplicate element
+		while(existingElement != null)
+                        {
+                            //update the value
+                            if (existingElement.key.equals(key)) {
+				existingElement.value = value;
+				return;
+			} else {
+				//Collision occured the for key, add element to the existing bucket
+
+			}
+                                //'next' used for pointing to itself, comes into picture during collision
+                                existingElement = existingElement.next;
+                        }
+		System.out.println("Adding key value pair (" + key + " , " + value+ ") to the map");
+		makeEntry intoOldBucket = new makeEntry(key, value);
+		intoOldBucket.next = table[bucket];
+		table[bucket] = intoOldBucket;
+                
+	}
+
+	public makeEntry get(String key) {
+		// get the regenerate hashcode
+		int hash = getBNumber(key.hashCode());
+		int bucket = getBucketNumber(hash);
+		// obtain the element in the bucket of the specified number
+		makeEntry existingElement = table[bucket];
+		//at the specific bucket, move through the list to check the existence of the element
+		while (existingElement != null) {
+			if (existingElement.key.equals(key)) {
+				return existingElement;
+			}
+			existingElement = existingElement.next;
+		}
+		// if element not found, then return null
+		return null;
+	}
+        //Displaying the map
+       public void showMap()
+        {
+            System.out.println("***************   The Map Is  ***************");
+            for(int i=0;i<SIZE;i++){
+		makeEntry existingElement = table[i];
+                //moving through the list to fetch and display each pair
+                while (existingElement != null) {
+			System.out.println("Item--->  "+existingElement.getKey()+"    "+existingElement.getValue());
+			existingElement = existingElement.next;
+		}
+            }
+        
+        }
+        
+	public static void main(String[] args) {
+                
+            //this is done to bring about thread safety
+            ProcessingThread ob=new ProcessingThread();
+            ob.run();
+            /*Here thread safety is brought about by making sure that put(), and get(), are called in synchronized fashion.
+            Usage of lock is the best solution to it though*/
+		
+	}
+
+        
+}
+
+class WriteObject {
+
+	
+	public void serializeAddress(Address address) {
+
+		FileOutputStream fout = null;
+		ObjectOutputStream oos = null;
+
+		try {
+                        //the required file is opened 
+			fout = new FileOutputStream("C:\\Users\\USER\\Desktop\\OpenSesame\\sFile.ser");
+			oos = new ObjectOutputStream(fout);
+			oos.writeObject(address);
+
+			System.out.println("The item is moved into file");
+
+		} catch (Exception ex) {
+
+			ex.printStackTrace();
+
+		} finally {
+
+			if (fout != null) {
+				try {
+					fout.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			if (oos != null) {
+				try {
+					oos.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+		}
+	}
+
+	public void serializeAddressJDK7(Address address) {
+
+		try (ObjectOutputStream oos =new ObjectOutputStream(new FileOutputStream("C:\\Users\\USER\\Desktop\\OpenSesame\\sFile2.ser"))) {
+
+			oos.writeObject(address);
+			System.out.println("Done");
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+
+	}
+
+}
+//Serializable iinterface is implemented here
+class Address implements Serializable {
+
+	private static final long serialVersionUID = 1L;
+
+	String k;
+	String v;
+        //it is needed to bring about serializability
+	public void setKey(String k) {
+		this.k = k;
+	}
+
+	public void setValue(String v) {
+		this.v = v;
+	}
+
+	public String getStreet() {
+		return this.k;
+	}
+
+	public String getCountry() {
+		return this.v;
+	}
+
+	@Override
+        //the pair being stored in the file
+	public String toString() {
+		return new StringBuffer(" Key : ").append(this.k).append(" Value : ").append(this.v).toString();
+	}
+
+}
+class ProcessingThread implements Runnable{
+    //overriding the run() function
+    @Override
+    public void run() {
+        try{
+        MakeMyMap mymap = new MakeMyMap();
+        makeCalls(mymap);
+        }
+        catch(Exception e){e.printStackTrace();}
+        }
+   
+    private void makeCalls(MakeMyMap m) {
+        // this block is for bringing about thread safety. it is run by one thread
+        try {
+            long heapMaxSize;
+            BufferedReader br= new  BufferedReader(new InputStreamReader(System.in));
+                System.out.println("============== Adding Element ===================");
+               
+                for(int i=0;i<10;i++)
+                {
+                    String k=new String("KEY-"+i);
+                    String v= new String("VALUE-"+i);
+                    //Getting the size of heap
+                   heapMaxSize = Runtime.getRuntime().maxMemory();
+                    //if heap size not exceeded, simply add the pair to the map
+                    if(m.SIZE < heapMaxSize)
+                    {
+                            m.put(k,v);
+                    }
+                        //if heap size exceeded, move the item to a file
+                        else
+                        {
+                          //to make a serialiizable file,Serializable interface is implemented
+                          //ObjectOutputStream is used to write objects into a file
+                         WriteObject obj = new WriteObject();
+
+		         Address address = new Address();
+		         address.setKey(k);
+		         address.setValue(v);
+
+		         obj.serializeAddress(address);
+
+                        }
+                }
+               m.showMap();
+               //Just a get() function calling
+               System.out.println("Enter the key, to display the corresponding value");
+               String ke=br.readLine();
+             //  m.makeEntry e=m.get(ke);
+               if(ke!=null)
+                   System.out.println("Value of key,"+ke+" is "+(m.get(ke)).value);
+            
+        } 
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+     }
+    
